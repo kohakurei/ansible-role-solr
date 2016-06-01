@@ -1,0 +1,19 @@
+---
+- name: Check java version
+  fail:
+    msg: "java {{ java_version }} is not supported"
+  when: java_version | int < 8
+
+- name: Debian | Installing java
+  apt:
+    name: "openjdk-{{ java_version }}-jdk"
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Redhat | Installing java
+  yum:
+    name: "openjdk-{{ java_version }}-jdk"
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Redhat"

@@ -1,0 +1,65 @@
+---
+- include: install-java.yml
+
+- name: Check solr version
+  fail:
+    msg: "solr-{{ solr_version }} is not exist package in mirror sites."
+  when:
+    - solr_version != '5.5.1'
+    - solr_version != '6.0.1'
+
+- name: Download solr package
+  get_url:
+    url: "{{ solr_mirror }}/apache/lucene/solr/{{ solr_version }}/solr-{{ solr_version }}.tgz"
+    dest: "{{ solr_work }}/solr-{{ solr_version }}.tgz"
+
+- name: Unarchive solr package
+  unarchive:
+    src: "{{ solr_work }}/solr-{{ solr_version }}.tgz"
+    dest: "{{ solr_work }}"
+
+- name: Installing solr
+  shell: "bin/install_solr_service.sh ../solr-{{ solr_version }}.tgz"
+  args:
+    chdir: "{{ solr_work }}/solr-{{ solr_version }}"
+    creates: "/var/solr"
+
+# coreの設置
+- name: Create directory
+  file:
+    path: "/var/solr/data/{{ item }}"
+    state: directory
+    owner: solr
+    group: solr
+    mode: 0775
+  with_items:
+    - "{{ solr_core_name }}"
+    - "{{ solr_core_name }}/data"
+
+- name: Copy conf directory
+  shell: |
+    cp -r conf /var/solr/data/{{ solr_core_name }}/ && chown -R solr:solr /var/solr/data/{{ solr_core_name }}/conf
+  args:
+    chdir: "{{ solr_work }}/solr-{{ solr_version }}/server/solr/configsets/sample_techproducts_configs"
+    creates: "/var/solr/data/{{ solr_core_name }}/conf/solrconfig.xml"
+
+- name: Copy core properties
+  template:
+    src: core.properties.j2
+    dest: "/var/solr/data/{{ solr_core_name }}/core.properties"
+    owner: solr
+    group: solr
+    mode: 0644
+
+- name: Copy schema
+  copy:
+    src: schema-2.3_ja.xml
+    dest: "/var/solr/data/{{ solr_core_name }}/conf/schema.xml"
+    owner: solr
+    group: solr
+    mode: 0644
+
+- name: Restart solr service
+  service:
+    name: solr
+    state: restarted
